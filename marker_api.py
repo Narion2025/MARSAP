@@ -16,6 +16,15 @@ import sys
 # Importiere den Marker Matcher
 from marker_matcher import MarkerMatcher, AnalysisResult
 
+# Importiere CoSD Module
+try:
+    from cosd import CoSDAnalyzer
+    COSD_AVAILABLE = True
+except ImportError:
+    COSD_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("CoSD module not available")
+
 # Flask App initialisieren
 app = Flask(__name__)
 CORS(app)  # Enable CORS für Frontend-Integration
@@ -26,14 +35,33 @@ logger = logging.getLogger(__name__)
 
 # Globale Matcher-Instanz
 matcher = None
+cosd_analyzer = None
 
 
 def initialize_matcher():
     """Initialisiert den Marker Matcher"""
-    global matcher
+    global matcher, cosd_analyzer
     try:
         matcher = MarkerMatcher()
         logger.info("Marker Matcher erfolgreich initialisiert")
+        
+        # Initialisiere CoSD wenn verfügbar
+        if COSD_AVAILABLE:
+            try:
+                from pathlib import Path
+                marker_path = Path("../the_mind_system/hive_mind/config/markers/Merged_Marker_Set.yaml")
+                if not marker_path.exists():
+                    marker_path = None
+                
+                cosd_analyzer = CoSDAnalyzer(
+                    marker_data_path=str(marker_path) if marker_path else None,
+                    base_matcher=matcher
+                )
+                logger.info("CoSD Analyzer erfolgreich initialisiert")
+            except Exception as e:
+                logger.warning(f"CoSD konnte nicht initialisiert werden: {e}")
+                cosd_analyzer = None
+                
     except Exception as e:
         logger.error(f"Fehler beim Initialisieren des Matchers: {e}")
         raise
@@ -232,6 +260,70 @@ def get_statistics():
         }), 500
 
 
+@app.route('/api/cosd/analyze', methods=['POST'])
+def analyze_cosd():
+    """Analysiert semantische Drift mit CoSD"""
+    if not cosd_analyzer:
+        return jsonify({
+            'error': 'CoSD-Modul nicht verfügbar',
+            'status': 'error'
+        }), 503
+    
+    try:
+        data = request.get_json()
+        
+        if not data or 'texts' not in data:
+            return jsonify({
+                'error': 'Keine Textsequenz zum Analysieren gefunden',
+                'status': 'error'
+            }), 400
+        
+        texts = data['texts']
+        
+        if not isinstance(texts, list) or len(texts) < 2:
+            return jsonify({
+                'error': 'CoSD benötigt mindestens 2 Texte in einer Liste',
+                'status': 'error'
+            }), 400
+        
+        # Optionale Konfiguration
+        config = data.get('config', {})
+        
+        # Aktualisiere Analyzer-Konfiguration
+        if 'resonance_threshold' in config:
+            cosd_analyzer.config['resonance_threshold'] = config['resonance_threshold']
+        if 'drift_velocity_window' in config:
+            cosd_analyzer.config['drift_velocity_window'] = config['drift_velocity_window']
+        
+        # Führe CoSD-Analyse durch
+        result = cosd_analyzer.analyze_drift(texts)
+        
+        # Konvertiere zu JSON-kompatiblem Format
+        response = result.to_dict()
+        response['status'] = 'success'
+        response['text_count'] = len(texts)
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Fehler bei der CoSD-Analyse: {e}")
+        return jsonify({
+            'error': str(e),
+            'status': 'error'
+        }), 500
+
+
+@app.route('/api/cosd/status', methods=['GET'])
+def cosd_status():
+    """Gibt den Status des CoSD-Moduls zurück"""
+    return jsonify({
+        'available': cosd_analyzer is not None,
+        'version': '1.0.0' if cosd_analyzer else None,
+        'config': cosd_analyzer.config if cosd_analyzer else None,
+        'status': 'active' if cosd_analyzer else 'unavailable'
+    })
+
+
 # Beispiel-HTML für die API-Dokumentation
 @app.route('/', methods=['GET'])
 def index():
@@ -286,6 +378,19 @@ def index():
         <div class="endpoint">
             <span class="method get">GET</span> <code>/stats</code>
             <p>Zeigt Statistiken über das Marker-System</p>
+        </div>
+        
+        <h2>CoSD-Endpoints (Co-emergent Semantic Drift):</h2>
+        
+        <div class="endpoint">
+            <span class="method post">POST</span> <code>/api/cosd/analyze</code>
+            <p>Analysiert semantische Drift in einer Textsequenz</p>
+            <pre>Body: { "texts": ["Text 1", "Text 2", ...], "config": {...} }</pre>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method get">GET</span> <code>/api/cosd/status</code>
+            <p>Zeigt Status und Konfiguration des CoSD-Moduls</p>
         </div>
         
         <h2>Risk-Level Farbcodierung:</h2>

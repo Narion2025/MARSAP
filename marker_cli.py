@@ -16,6 +16,13 @@ from colorama import init, Fore, Back, Style
 # Importiere den Marker Matcher
 from marker_matcher import MarkerMatcher
 
+# Importiere CoSD Module
+try:
+    from cosd import CoSDAnalyzer
+    COSD_AVAILABLE = True
+except ImportError:
+    COSD_AVAILABLE = False
+
 # Initialisiere colorama für farbige Ausgabe
 init(autoreset=True)
 
@@ -25,6 +32,22 @@ class MarkerCLI:
     
     def __init__(self):
         self.matcher = MarkerMatcher()
+        self.cosd_analyzer = None
+        
+        # Initialisiere CoSD wenn verfügbar
+        if COSD_AVAILABLE:
+            try:
+                # Verwende erweiterte Marker-Datei falls vorhanden
+                marker_path = Path("../the_mind_system/hive_mind/config/markers/Merged_Marker_Set.yaml")
+                if not marker_path.exists():
+                    marker_path = None
+                self.cosd_analyzer = CoSDAnalyzer(
+                    marker_data_path=str(marker_path) if marker_path else None,
+                    base_matcher=self.matcher
+                )
+            except Exception as e:
+                print(f"{Fore.YELLOW}Warnung: CoSD-Modul konnte nicht initialisiert werden: {e}{Style.RESET_ALL}")
+                self.cosd_analyzer = None
         
     def analyze_text(self, text: str, verbose: bool = False):
         """Analysiert einen einzelnen Text"""
@@ -196,6 +219,97 @@ class MarkerCLI:
             
         except Exception as e:
             print(f"{Fore.RED}Fehler beim Export: {e}{Style.RESET_ALL}")
+    
+    def analyze_cosd(self, texts: List[str], verbose: bool = False, export_file: Optional[str] = None):
+        """Analysiert eine Textsequenz mit CoSD"""
+        if not self.cosd_analyzer:
+            print(f"{Fore.RED}CoSD-Modul nicht verfügbar!{Style.RESET_ALL}")
+            return
+        
+        if len(texts) < 2:
+            print(f"{Fore.YELLOW}CoSD-Analyse benötigt mindestens 2 Texte!{Style.RESET_ALL}")
+            return
+        
+        print(f"\n{Fore.CYAN}CoSD-Analyse für {len(texts)} Texte{Style.RESET_ALL}")
+        print("=" * 60)
+        
+        try:
+            # Führe CoSD-Analyse durch
+            result = self.cosd_analyzer.analyze_drift(texts)
+            
+            # Ausgabe
+            self._print_cosd_result(result, verbose)
+            
+            # Export falls gewünscht
+            if export_file:
+                self._export_cosd_result(result, export_file)
+                
+        except Exception as e:
+            print(f"{Fore.RED}Fehler bei CoSD-Analyse: {e}{Style.RESET_ALL}")
+    
+    def _print_cosd_result(self, result, verbose: bool = False):
+        """Gibt CoSD-Analyse-Ergebnis formatiert aus"""
+        # Risk Assessment
+        risk = result.risk_assessment
+        risk_colors = {
+            'low': Fore.GREEN,
+            'medium': Fore.YELLOW,
+            'high': Fore.MAGENTA,
+            'critical': Fore.RED
+        }
+        risk_color = risk_colors.get(risk['risk_level'], Fore.WHITE)
+        
+        print(f"\n{risk_color}CoSD Risk-Level: {risk['risk_level'].upper()}{Style.RESET_ALL}")
+        print(f"Gesamt-Risiko-Score: {risk['total_risk_score']:.2f}")
+        
+        # Drift-Metriken
+        print(f"\n{Fore.CYAN}Drift-Metriken:{Style.RESET_ALL}")
+        print(f"  - Durchschnittliche Geschwindigkeit: {result.drift_velocity['average_velocity']:.3f}")
+        print(f"  - Pfadlänge: {result.drift_path['path_length']:.3f}")
+        print(f"  - Krümmung: {result.drift_path['curvature']:.3f}")
+        
+        # Resonanzmuster
+        if result.resonance_patterns:
+            print(f"\n{Fore.CYAN}Resonanzmuster:{Style.RESET_ALL}")
+            chains = [p for p in result.resonance_patterns if p['type'] == 'resonance_chain']
+            strong = [p for p in result.resonance_patterns if p['type'] == 'strong_resonance']
+            print(f"  - Starke Resonanzen: {len(strong)}")
+            print(f"  - Resonanzketten: {len(chains)}")
+            
+            if verbose and chains:
+                print("  Resonanzketten:")
+                for chain in chains[:3]:
+                    print(f"    - Länge {chain['chain_length']}, Dichte {chain['density']:.2f}")
+        
+        # Emergente Cluster
+        if result.emergent_clusters:
+            print(f"\n{Fore.CYAN}Emergente Cluster:{Style.RESET_ALL}")
+            for cluster in result.emergent_clusters[:5]:
+                print(f"  - {len(cluster.marker_names)} Marker, Kohäsion: {cluster.cohesion_score:.2f}")
+                if verbose:
+                    print(f"    Marker: {', '.join(list(cluster.marker_names)[:5])}")
+        
+        # Empfehlungen
+        print(f"\n{Fore.CYAN}Empfehlungen:{Style.RESET_ALL}")
+        for rec in risk['recommendations']:
+            print(f"  • {rec}")
+    
+    def _export_cosd_result(self, result, output_file: str):
+        """Exportiert CoSD-Ergebnis in Datei"""
+        try:
+            result_dict = result.to_dict()
+            
+            if output_file.endswith('.yaml'):
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    yaml.dump(result_dict, f, allow_unicode=True)
+            else:
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(result_dict, f, ensure_ascii=False, indent=2)
+            
+            print(f"{Fore.GREEN}CoSD-Ergebnis exportiert nach: {output_file}{Style.RESET_ALL}")
+            
+        except Exception as e:
+            print(f"{Fore.RED}Fehler beim Export: {e}{Style.RESET_ALL}")
 
 
 def main():
@@ -219,6 +333,9 @@ Beispiele:
   
   # Ergebnis exportieren
   python marker_cli.py -t "Text..." --export result.json
+  
+  # CoSD-Analyse durchführen
+  python marker_cli.py --cosd-analyze -f text1.txt text2.txt text3.txt
         """
     )
     
@@ -240,6 +357,16 @@ Beispiele:
     parser.add_argument('--format', choices=['json', 'yaml'], default='json',
                        help='Export-Format (Standard: json)')
     
+    # CoSD-spezifische Optionen
+    parser.add_argument('--cosd-analyze', action='store_true',
+                       help='Führe CoSD-Analyse für eine Textsequenz durch')
+    parser.add_argument('--drift-timeframe', type=int, default=5,
+                       help='Zeitabstand zwischen Texten in Minuten (Standard: 5)')
+    parser.add_argument('--resonance-threshold', type=float, default=0.7,
+                       help='Schwellenwert für Resonanz-Erkennung (Standard: 0.7)')
+    parser.add_argument('files', nargs='*',
+                       help='Dateien für CoSD-Analyse (bei --cosd-analyze)')
+    
     args = parser.parse_args()
     
     # Erstelle CLI-Instanz
@@ -248,6 +375,30 @@ Beispiele:
     # Führe gewünschte Aktion aus
     if args.list_markers:
         cli.list_markers(args.category)
+    elif args.cosd_analyze:
+        # CoSD-Analyse
+        if not args.files:
+            print(f"{Fore.RED}Fehler: CoSD-Analyse benötigt Dateien!{Style.RESET_ALL}")
+            parser.print_help()
+            sys.exit(1)
+        
+        # Lade Texte aus Dateien
+        texts = []
+        for file_path in args.files:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    texts.append(f.read())
+            except Exception as e:
+                print(f"{Fore.RED}Fehler beim Lesen von {file_path}: {e}{Style.RESET_ALL}")
+                sys.exit(1)
+        
+        # Konfiguriere CoSD-Analyzer falls vorhanden
+        if cli.cosd_analyzer:
+            cli.cosd_analyzer.config['resonance_threshold'] = args.resonance_threshold
+        
+        # Führe Analyse durch
+        cli.analyze_cosd(texts, args.verbose, args.export)
+        
     elif args.text:
         if args.export:
             cli.export_results(args.text, args.export, args.format)

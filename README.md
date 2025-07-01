@@ -1,8 +1,10 @@
 # MARSAP - Marker Analysis & Recognition System for Adaptive Patterns
 
-## 🔍 Semantisch-psychologischer Resonanz- und Manipulations-Detektor
+## 🔍 Semantisch-psychologischer Resonanz- und Manipulations-Detektor mit CoSD-Integration
 
 MARSAP ist ein fortschrittliches System zur Erkennung psychologischer Kommunikationsmuster, manipulativer Techniken und emotionaler Dynamiken in Texten. Es nutzt einen umfangreichen Katalog von 72+ Markern zur Live-Analyse von Kommunikationsmustern.
+
+**NEU: CoSD-Modul (Co-emergent Semantic Drift)** - Analysiert semantische Drift und emergente Bedeutungsmuster in Textsequenzen.
 
 ## 🎯 Features
 
@@ -12,6 +14,8 @@ MARSAP ist ein fortschrittliches System zur Erkennung psychologischer Kommunikat
 - **Real-time Analyse** für Chat-Monitoring
 - **Batch-Processing** für Archiv-Scans
 - **Modulare Erweiterbarkeit** für neue Marker
+- **CoSD-Analyse** für semantische Drift-Erkennung und Resonanzmuster
+- **Emergenz-Detektion** für neue Bedeutungsmuster
 
 ## 🚀 Quick Start
 
@@ -51,6 +55,25 @@ from marker_matcher import MarkerMatcher
 matcher = MarkerMatcher()
 result = matcher.analyze_text("Dein Text hier...")
 print(f"Risk-Level: {result.risk_level}")
+```
+
+### CoSD-Analyse (NEU)
+```bash
+# Textsequenz analysieren
+python3 marker_cli.py --cosd-analyze text1.txt text2.txt text3.txt
+
+# Mit erweiterten Optionen
+python3 marker_cli.py --cosd-analyze --resonance-threshold 0.8 --export cosd_result.json text*.txt
+```
+
+```python
+# Python API für CoSD
+from cosd import CoSDAnalyzer
+
+analyzer = CoSDAnalyzer()
+result = analyzer.analyze_drift(["Text 1", "Text 2", "Text 3"])
+print(f"Drift-Geschwindigkeit: {result.drift_velocity['average_velocity']:.3f}")
+print(f"Risk-Level: {result.risk_assessment['risk_level']}")
 ```
 
 ## 📊 Erkannte Muster
