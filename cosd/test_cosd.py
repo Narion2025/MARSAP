@@ -7,12 +7,12 @@ import unittest
 import numpy as np
 from datetime import datetime, timedelta
 
-from cost_vector_math import (
+from cosd.cost_vector_math import (
     CoSDVector, VectorOperations, calculate_drift_velocity,
     calculate_resonance_coupling, cluster_vectors
 )
-from drift_analyzer import CoSDAnalyzer, DriftAnalysisResult
-from semantic_marker_interface import SemanticCluster, MarkerVectorizer
+from cosd.drift_analyzer import CoSDAnalyzer, DriftAnalysisResult
+from cosd.semantic_marker_interface import SemanticCluster, MarkerVectorizer
 
 
 class TestCoSDVectorMath(unittest.TestCase):
