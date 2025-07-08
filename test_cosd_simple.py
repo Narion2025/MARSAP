@@ -5,6 +5,7 @@ Einfacher Test für das CoSD-Modul
 
 import sys
 import os
+import pytest
 
 # Füge das aktuelle Verzeichnis zum Python-Pfad hinzu
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -12,14 +13,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 def test_cosd_import():
     """Testet den Import des CoSD-Moduls"""
     print("🔍 Teste CoSD-Import...")
-    
+
     try:
-        from cosd import CoSDAnalyzer
+        from cosd import CoSDAnalyzer  # noqa: F401
         print("✅ CoSD-Import erfolgreich!")
-        return True
     except ImportError as e:
-        print(f"❌ Import-Fehler: {e}")
-        return False
+        pytest.fail(f"Import-Fehler: {e}")
 
 def test_cosd_analyzer():
     """Testet den CoSD-Analyzer"""
@@ -64,13 +63,10 @@ def test_cosd_analyzer():
                     print(f"      Resonanz-Muster: {len(result.resonance_patterns)}")
                     
             except Exception as e:
-                print(f"   ❌ Analyse-Fehler: {e}")
-        
-        return True
+                pytest.fail(f"Analyse-Fehler: {e}")
         
     except Exception as e:
-        print(f"❌ CoSD-Analyzer Fehler: {e}")
-        return False
+        pytest.fail(f"CoSD-Analyzer Fehler: {e}")
 
 def test_chat_integration():
     """Testet die Chat-Integration"""
@@ -86,18 +82,13 @@ def test_chat_integration():
             status = response.json()
             print("✅ Chat-Server läuft!")
             print(f"   CoSD verfügbar: {status.get('available', False)}")
-            return True
         else:
-            print(f"❌ Chat-Server Fehler: {response.status_code}")
-            return False
+            pytest.fail(f"Chat-Server Fehler: {response.status_code}")
             
     except requests.exceptions.ConnectionError:
-        print("❌ Chat-Server nicht erreichbar")
-        print("   Starte ihn mit: python3 chat_backend.py")
-        return False
+        pytest.skip("Chat-Server nicht erreichbar")
     except Exception as e:
-        print(f"❌ Chat-Integration Fehler: {e}")
-        return False
+        pytest.fail(f"Chat-Integration Fehler: {e}")
 
 if __name__ == "__main__":
     print("🚀 CoSD-Modul Test")

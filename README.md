@@ -34,6 +34,16 @@ python3 marker_matcher.py
 python3 marker_cli.py -t "Das hast du dir nur eingebildet."
 ```
 
+### Docker
+
+```bash
+# Container bauen und starten
+docker compose up --build
+
+# API im Browser testen
+curl http://localhost:5000/health
+```
+
 ## 💻 Verwendung
 
 ### Command Line Interface
